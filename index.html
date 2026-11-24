@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>マウスケージ管理 Mouse Cage Manager</title>
+<style>
+:root{--bg:#f4f6f8;--surface:#fff;--ink:#1d2a33;--mute:#6b7a86;--line:#dde3e8;--warn:#d93025;--ok:#2f8f4e;--today:#1a73e8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12181d;--surface:#1a232a;--ink:#e6edf2;--mute:#8fa0ad;--line:#2c3943;--ok:#5ec27f;--today:#6aa6ff;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#12181d;--surface:#1a232a;--ink:#e6edf2;--mute:#8fa0ad;--line:#2c3943;--ok:#5ec27f;--today:#6aa6ff;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 "Hiragino Sans","Yu Gothic UI","Noto Sans JP",system-ui,sans-serif}
+main{max-width:1280px;margin:0 auto;padding:10px 12px}
+h1{font-size:18px;margin:0 auto 0 0}
+.en{font-weight:400;color:var(--mute);font-size:.85em;margin-left:.4em}
+.pri .en,.warn .en{color:inherit;opacity:.85}
+.wi{width:1.25em;height:1.25em;vertical-align:-.25em;margin-right:.2em}
+.lab .en,.stat .en{display:block;margin:0}
+.stat .en.in{display:inline;margin-left:.3em}
+.top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.top .t{font-size:17px;font-weight:600;margin:0 6px}
+button,input{font:inherit;color:inherit}
+button{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:5px 14px;cursor:pointer}
+button.pri{background:#16607f;color:#fff;border-color:#16607f}
+button:focus-visible,input:focus-visible{outline:2px solid var(--today);outline-offset:2px}
+input:not([type=color]){background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 8px;min-width:0}
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.stat{background:var(--surface);border:2px solid var(--ok);border-radius:8px;padding:5px 14px;line-height:1.3}
+.stat b{font-size:18px}
+.stat.warn{border-color:var(--warn);background:var(--warn);color:#fff}
+.stat.neutral{border-color:var(--line)}
+.tl{display:flex;flex-wrap:wrap;gap:4px 14px}
+.cal{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+.in{user-select:none;-webkit-user-select:none}
+.row{display:grid;grid-template-columns:clamp(84px,15vw,170px) 1fr;border-bottom:1px solid var(--line)}
+.who{padding:6px 8px;font-weight:600;border-right:1px solid var(--line);display:flex;align-items:flex-start;gap:6px;min-width:0}
+.who span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-top:4px}
+.who input[type=color]{width:20px;height:20px;padding:0;border:0;background:none;margin-top:5px;cursor:pointer;flex:none}
+.who .x{border:1px solid var(--line);background:none;padding:3px 6px;color:var(--mute);border-radius:6px;line-height:0;margin-top:2px}
+.who .x:hover,.who .x:focus-visible{color:var(--warn);border-color:var(--warn)}
+.who.lab{display:block;font-weight:500;font-size:13px;line-height:1.3;padding:5px 8px}
+.track,.utrack{background:repeating-linear-gradient(90deg,transparent 0 calc(100%/7 - 1px),var(--line) calc(100%/7 - 1px) calc(100%/7))}
+.track{display:grid;grid-template-columns:repeat(7,1fr)}
+.utrack{position:relative;min-height:44px}
+.cells{position:absolute;inset:0;display:grid;grid-template-columns:repeat(7,1fr);cursor:crosshair;touch-action:pan-y}
+.cells div.sel{background:color-mix(in srgb,var(--c) 35%,transparent);outline:2px dashed color-mix(in srgb,var(--c) 60%,#1d2a33);outline-offset:-3px}
+.bars{position:relative;display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:30px;row-gap:4px;padding:7px 0;pointer-events:none}
+.bar{pointer-events:auto;background:var(--c);color:#14232c;border:0;border-radius:5px;margin:0 3px;padding:0 8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+.bar .en{color:inherit;opacity:.75}
+.bar:hover{filter:brightness(1.15)}
+.head .d{text-align:center;padding:6px 0;line-height:1.2;cursor:pointer}
+.head .d small{display:block;color:var(--mute)}
+.head .d b{display:inline-block;font-size:20px;min-width:34px;border-radius:17px;padding:3px 0}
+.head .today b{background:var(--today);color:#fff}
+.head .picked{background:color-mix(in srgb,var(--today) 12%,transparent)}
+.head .picked b{outline:2px solid var(--today);outline-offset:1px}
+.sum .d{padding:5px 2px;text-align:center;font-size:14px;display:flex;align-items:center;justify-content:center}
+.sum.shortrow .who{color:var(--warn);font-weight:700}
+.sum .d.tri{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:4px 4px}
+.m{display:flex;flex-direction:column;align-items:center;line-height:1.15;border-radius:4px;background:color-mix(in srgb,var(--ok) 14%,transparent);padding:2px 0}
+.m i{font-style:normal;font-size:10px;color:var(--mute)}
+.m b{font-size:15px}
+.m.z{background:color-mix(in srgb,var(--warn) 16%,transparent)}
+.m.z b{color:var(--warn)}
+.tiles{display:flex;flex-wrap:wrap;gap:8px;margin-top:3px}
+.tile{border:1px solid var(--line);border-radius:8px;padding:2px 10px;text-align:center;min-width:72px;background:color-mix(in srgb,var(--ok) 10%,transparent)}
+.tile.z{background:color-mix(in srgb,var(--warn) 14%,transparent)}
+.stat .tile b{display:block;font-size:22px;line-height:1.1}
+.stat .tile.z b{color:var(--warn)}
+.tile small{color:var(--mute)}
+.pop.det{align-items:center}
+.sum .d.warn{background:var(--warn);color:#fff;font-weight:700;margin:3px 5px;border-radius:4px;font-size:12px;line-height:1.35;flex-direction:column}
+.pop,.plus{display:flex;flex-wrap:wrap;gap:10px;align-items:end;padding:8px 12px;border-bottom:1px solid var(--line)}
+.pop{background:color-mix(in srgb,var(--c) 12%,var(--surface))}
+.pop input[type=number]{width:64px}
+.pinfo{flex-basis:100%;font-size:13px}
+.pinfo b{font-size:16px}
+.pinfo .bad{color:var(--warn);font-weight:700;margin-top:2px}
+button.pri.danger{background:var(--warn);border-color:var(--warn)}
+.bad2{color:var(--warn);font-weight:700}
+.plus button{border-style:dashed}
+.set{display:flex;flex-wrap:wrap;gap:12px;align-items:end;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:12px}
+label{display:flex;flex-direction:column;font-size:12px;gap:2px}
+label .en{margin:0}
+.set input{width:84px}
+.note{color:var(--mute);font-size:12px;margin-top:8px}
+.note span{display:block}
+details.more{margin-top:8px}
+details.more summary{cursor:pointer;color:var(--mute);font-size:13px;padding:4px 0}
+.set{margin-top:6px}
+.sync{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--mute)}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--mute);display:inline-block}
+.sync.on i{background:var(--ok)}
+.sync.err{color:var(--warn)}
+.sync.err i{background:var(--warn)}
+.sync .en{margin-left:.3em}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--warn);color:#fff;padding:8px 16px;border-radius:8px;z-index:50;max-width:90vw;font-size:13px;line-height:1.4}
+.toast[hidden]{display:none}
+@media (max-width:700px){
+body{font-size:13px}
+main{padding:8px}
+h1{font-size:15px}
+.row{grid-template-columns:84px 1fr}
+.who{padding:4px;gap:3px;flex-wrap:wrap}
+.who:not(.lab)>span{flex-basis:100%;order:-1;padding-top:0;font-size:12px}
+.who input[type=color]{margin-top:0}
+.who .x{margin-top:0}
+.who.lab{font-size:10px;padding:4px}
+.head .d small{font-size:9px}
+.head .d b{font-size:15px;min-width:26px;padding:2px 0}
+.sum .d.tri{grid-template-columns:1fr;gap:2px;padding:3px 2px}
+.m{flex-direction:row;justify-content:center;gap:3px;padding:1px 0}
+.m b{font-size:13px}
+.sum .d.warn{font-size:9px;margin:2px;padding:2px}
+.sum .d.warn .en{display:none}
+.bar{font-size:10px;padding:0 3px;margin:0 1px}
+.bar .en{display:none}
+.stat{padding:3px 8px}
+.tile{min-width:56px;padding:2px 6px}
+.stat .tile b{font-size:18px}
+.pop,.plus{padding:8px;gap:8px}
+.pop input[type=date]{width:132px}
+.pop input[type=number]{width:52px}
+.set input{width:72px}
+}
+</style>
+</head>
+<body>
+<main>
+<div class="top">
+<h1>マウスケージ管理<span class="en">Mouse Cage Manager</span></h1>
+<button id="today">今日<span class="en">Today</span></button><button id="prev" aria-label="前の週 Previous week">&lt;</button><button id="next" aria-label="次の週 Next week">&gt;</button>
+<span class="t" id="title"></span>
+<span class="sync wait" id="sync" role="status"><i></i><span id="syncT">接続中…<span class="en">Connecting…</span></span></span>
+</div>
+<div class="stats" id="stats"></div>
+<div class="cal"><div class="in" id="cal"></div></div>
+<details class="more"><summary>設定と使い方<span class="en">Settings and help</span></summary>
+<div class="set">
+<label>ケージ総数(大)<span class="en">Total cages (Large)</span><input id="tL" type="number" min="0"></label>
+<label>ケージ総数(中)<span class="en">Total cages (Medium)</span><input id="tM" type="number" min="0"></label>
+<label>ケージ総数(小)<span class="en">Total cages (Small)</span><input id="tS" type="number" min="0"></label>
+<label>ボトル総数<span class="en">Total bottles</span><input id="tb" type="number" min="0"></label>
+<span class="note" style="margin:0"><span>ボトルはケージ1個につき1本使う想定です(大・中・小共通)。</span><span>Assumes one bottle per cage, whatever the size.</span></span>
+</div>
+<div class="note">
+<span>利用者の行で日付をドラッグし、大・中・小のケージ数を入力して予約します。週の端までドラッグすると、隣の週に移ります。日付をクリックすると、その日の空きを上部に表示します。横棒をクリックすると予約を削除できます。データはSupabaseに保存され、他のユーザーの変更もリアルタイムで反映されます。</span>
+<span>Drag across days in a user's row, then enter the number of Large, Medium and Small cages to book. Drag to the edge of the week to move to the next or previous week. Click a date to see that day's vacancies at the top. Click a bar to delete a booking. Data is stored in Supabase, and other users' changes appear in real time.</span>
+</div>
+</details>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const add=(d,n)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()+n);
+const parse=s=>{const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c)};
+const sow=d=>add(d,-d.getDay());
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>(window.crypto&&crypto.randomUUID)?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&3|8)).toString(16)});
+const OLDPAL=['#16607f','#7c3aed','#0f8b6d','#be185d','#8a6d00','#2563eb','#6d4c41','#475569'];
+const PAL=['#7fb0c9','#b3a3dc','#86c3b0','#dba3bd','#cdbb73','#8fa9e6','#c0a496','#a3afbf'];
+const TYPES=[{k:'L',ja:'大',en:'Large'},{k:'M',ja:'中',en:'Medium'},{k:'S',ja:'小',en:'Small'}];
+/* ===== Supabase 接続設定 / Supabase connection =====
+   Project URL と Publishable key を入力してください。
+   Enter your Project URL and Publishable key (Dashboard → Project Settings → API Keys).
+   ※ Secret key / service_role key は絶対に入れないでください。Never put a secret / service_role key here. */
+const SUPABASE_URL='https://folwdptbeklqidpbgnqm.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_qRauOb1BonEoqiOcnnPzEQ_52OUtgXy';
+/* ================================================== */
+
+const LEGACY_KEY='cage-manager-v2'; // 旧localStorage(初回の取り込み専用) / legacy key, used only for one-time import
+const T={ev:'cage_bookings',us:'cage_users',se:'cage_settings'};
+const DEFAULTS={cages:{L:6,M:8,S:6},bottles:20};
+let st={cages:{...DEFAULTS.cages},bottles:DEFAULTS.bottles,users:[],bookings:[]};
+let dirty=false,rtOk=false,loading=null,again=false,importAsked=false,toastT=null;
+
+const sb=(window.supabase&&/^https:\/\//.test(SUPABASE_URL)&&!/YOUR/.test(SUPABASE_URL+SUPABASE_PUBLISHABLE_KEY))
+  ?window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}})
+  :null;
+
+/* --- テーブル列 ⇔ アプリ内のデータ形式。既存テーブルの列名が違う場合はここだけ直せばOK ---
+   --- Column mapping. If your table uses other column names, adjust only these. --- */
+const okColor=c=>/^#[0-9a-f]{6}$/i.test(c)?c:PAL[0];
+const evFromRow=r=>({id:r.id,uid:r.user_id,start:r.start_date,end:r.end_date,cages:{L:r.cages_l||0,M:r.cages_m||0,S:r.cages_s||0}});
+const evToRow=b=>({id:b.id,user_id:b.uid,start_date:b.start,end_date:b.end,cages_l:b.cages.L||0,cages_m:b.cages.M||0,cages_s:b.cages.S||0});
+const userFromRow=r=>({id:r.id,name:String(r.name||''),color:okColor(r.color)});
+const SETCOL={L:'cages_l',M:'cages_m',S:'cages_s'};
+
+/* --- 同期表示・通知 / sync badge and toast --- */
+const SYNC={on:['同期中','Live'],wait:['接続中…','Connecting…'],err:['未接続','Offline']};
+function setSync(k){const el=$('#sync');if(!el)return;el.className='sync '+k;$('#syncT').innerHTML=SYNC[k][0]+`<span class="en">${SYNC[k][1]}</span>`}
+function toast(ja,en){
+  let t=$('#toast');
+  if(!t){t=document.createElement('div');t.id='toast';t.className='toast';t.setAttribute('role','alert');document.body.appendChild(t)}
+  t.innerHTML=ja+`<span class="en" style="color:inherit;opacity:.85">${en}</span>`;t.hidden=false;
+  clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true},6000);
+}
+const ready=()=>{
+  if(sb)return true;
+  toast('Supabaseに接続できません。URLとキーの設定、またはネットワークを確認してください。','Not connected to Supabase. Check the URL/key settings and your network.');
+  return false;
+};
+async function run(q){
+  try{const{error}=await q;if(error)throw error;return true}
+  catch(err){console.error(err);toast('保存に失敗しました。最新の状態に戻します。','Save failed. Reloading the latest data.');loadAll();return false}
+}
+
+/* --- 画面更新(入力中のフォーカスや入力値を壊さない) / re-render without disturbing the user's input --- */
+function remoteRender(){
+  const a=document.activeElement;
+  if(drag||(a&&a.type==='color')){dirty=true;return}
+  const id=a&&a.id,ss=a&&a.selectionStart,se=a&&a.selectionEnd,un=$('#un')?$('#un').value:null;
+  render();
+  if(un!==null&&$('#un'))$('#un').value=un;
+  const el=id&&document.getElementById(id);
+  if(el){el.focus();try{el.setSelectionRange(ss,se)}catch(_){}}
+}
+function afterRemote(){
+  if(pending&&!st.users.some(u=>u.id===pending.uid))pending=null;
+  if(detail&&!st.bookings.some(b=>b.id===detail)){detail=null;askDel=null}
+  if(askDel&&askDel.kind==='user'&&!st.users.some(u=>u.id===askDel.id))askDel=null;
+  remoteRender();
+}
+$('#cal').addEventListener('focusout',()=>{if(dirty)setTimeout(()=>{if(dirty)remoteRender()},0)});
+
+/* --- 取得 / load (1,000件超えにも対応) --- */
+async function fetchEvents(){
+  const out=[];
+  for(let i=0;;i+=1000){
+    const{data,error}=await sb.from(T.ev).select('*').order('start_date').order('id').range(i,i+999);
+    if(error)throw error;
+    out.push(...data);
+    if(data.length<1000)break;
+  }
+  return out;
+}
+async function loadAll(){
+  if(!sb)return;
+  if(loading){again=true;return loading}
+  loading=(async()=>{
+    try{
+      const[u,e,s]=await Promise.all([
+        sb.from(T.us).select('*').order('created_at').order('id'),
+        fetchEvents(),
+        sb.from(T.se).select('*').eq('id',1).maybeSingle()
+      ]);
+      if(u.error)throw u.error;
+      if(s.error)throw s.error;
+      st.users=u.data.map(userFromRow);
+      st.bookings=e.map(evFromRow);
+      if(s.data){st.cages={L:s.data.cages_l,M:s.data.cages_m,S:s.data.cages_s};st.bottles=s.data.bottles}
+      else await sb.from(T.se).upsert({id:1,cages_l:DEFAULTS.cages.L,cages_m:DEFAULTS.cages.M,cages_s:DEFAULTS.cages.S,bottles:DEFAULTS.bottles},{onConflict:'id',ignoreDuplicates:true});
+      setSync(rtOk?'on':'wait');
+      afterRemote();
+      if(!st.users.length)offerImport();
+    }catch(err){
+      console.error(err);setSync('err');
+      toast('データを取得できませんでした。テーブルの作成とポリシー設定を確認してください。','Could not load data. Check that the tables and policies are set up.');
+    }finally{loading=null;if(again){again=false;loadAll()}}
+  })();
+  return loading;
+}
+
+/* --- このブラウザの旧データを一度だけ取り込む / one-time import of the old browser-only data --- */
+async function offerImport(){
+  if(importAsked)return;importAsked=true;
+  let old=null;
+  try{if(localStorage.getItem(LEGACY_KEY+'-imported'))return;old=JSON.parse(localStorage.getItem(LEGACY_KEY))}catch(_){return}
+  if(!old||!Array.isArray(old.users)||!old.users.length)return;
+  if(!confirm('このブラウザに保存されている既存データをSupabaseに取り込みますか?\nImport the data saved in this browser into Supabase?'))return;
+  try{
+    const toC=c=>typeof c==='number'?{L:0,M:c,S:0}:{L:+(c&&c.L)||0,M:+(c&&c.M)||0,S:+(c&&c.S)||0};
+    const map={};
+    const users=old.users.map(u=>{const id=uid(),oi=OLDPAL.indexOf(u.color);map[u.id]=id;return{id,name:String(u.name||'利用者').slice(0,20),color:okColor(oi>=0?PAL[oi]:u.color)}});
+    const evs=(old.bookings||[]).filter(b=>map[b.uid]&&b.start&&b.end&&b.end>=b.start).map(b=>evToRow({id:uid(),uid:map[b.uid],start:b.start,end:b.end,cages:toC(b.cages)}));
+    let r=await sb.from(T.us).insert(users);if(r.error)throw r.error;
+    if(evs.length){r=await sb.from(T.ev).insert(evs);if(r.error)throw r.error}
+    const c=toC(old.cages!=null?old.cages:DEFAULTS.cages);
+    r=await sb.from(T.se).upsert({id:1,cages_l:c.L,cages_m:c.M,cages_s:c.S,bottles:Math.max(0,Math.floor(+old.bottles||0))});if(r.error)throw r.error;
+    try{localStorage.setItem(LEGACY_KEY+'-imported','1')}catch(_){}
+    await loadAll();
+  }catch(err){console.error(err);toast('取り込みに失敗しました。','Import failed.')}
+}
+
+/* --- Realtime:他のユーザーの変更を反映 / apply other users' changes live --- */
+function subscribe(){
+  const ch=sb.channel('cage-manager-sync');
+  const on=(table,fn)=>ch.on('postgres_changes',{event:'*',schema:'public',table},fn);
+  on(T.ev,p=>{
+    if(p.eventType==='DELETE'){st.bookings=st.bookings.filter(b=>b.id!==p.old.id)}
+    else{const b=evFromRow(p.new),i=st.bookings.findIndex(x=>x.id===b.id);if(i<0)st.bookings.push(b);else st.bookings[i]=b}
+    afterRemote();
+  });
+  on(T.us,p=>{
+    if(p.eventType==='DELETE'){st.users=st.users.filter(u=>u.id!==p.old.id);st.bookings=st.bookings.filter(b=>b.uid!==p.old.id)}
+    else{const u=userFromRow(p.new),i=st.users.findIndex(x=>x.id===u.id);if(i<0)st.users.push(u);else st.users[i]=u}
+    afterRemote();
+  });
+  on(T.se,p=>{
+    if(p.eventType==='DELETE')return;
+    const r=p.new;st.cages={L:r.cages_l,M:r.cages_m,S:r.cages_s};st.bottles=r.bottles;afterRemote();
+  });
+  ch.subscribe(s=>{
+    if(s==='SUBSCRIBED'){rtOk=true;setSync('on');loadAll()} // 再接続時も取りこぼしを再取得 / refetch after (re)connect
+    else if(s==='CHANNEL_ERROR'||s==='TIMED_OUT'||s==='CLOSED'){rtOk=false;setSync('err')}
+  });
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadAll()});
+let ws=sow(new Date()),ds=[],pending=null,drag=null,addingUser=false,lastPt=null,edgeTimer=null,selDay=null,detail=null,askDel=null;
+const DOW=['日','月','火','水','木','金','土'],EN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const WARN='<svg class="wi" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8 22 20.5H2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9.5v5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17.3" r="1.3" fill="currentColor"/></svg>';
+const tot=c=>TYPES.reduce((a,y)=>a+(c[y.k]||0),0);
+const use=(day,ex)=>{const r={L:0,M:0,S:0};st.bookings.forEach(b=>{if(b.id!==ex&&b.start<=day&&day<=b.end)TYPES.forEach(y=>r[y.k]+=b.cages[y.k]||0)});r.t=r.L+r.M+r.S;return r};
+const selRange=u=>{
+  if(drag&&drag.uid===u)return[drag.a,drag.b].sort();
+  if(pending&&pending.uid===u)return[pending.start,pending.end];
+  return null;
+};
+function render(){
+  dirty=false;
+  const days=[...Array(7)].map((_,i)=>add(ws,i));ds=days.map(fmt);const td=fmt(new Date());
+  const d0=days[0],d6=days[6],mo=d=>d.toLocaleString('en',{month:'short'});
+  const ja=d0.getFullYear()+'年'+(d0.getMonth()+1)+'月'+(d0.getMonth()!==d6.getMonth()?'〜'+(d6.getMonth()+1)+'月':'');
+  const en=d0.getMonth()===d6.getMonth()?d0.toLocaleString('en',{month:'long',year:'numeric'}):(d0.getFullYear()===d6.getFullYear()?`${mo(d0)} – ${mo(d6)} ${d6.getFullYear()}`:`${mo(d0)} ${d0.getFullYear()} – ${mo(d6)} ${d6.getFullYear()}`);
+  $('#title').innerHTML=ja+`<span class="en">${en}</span>`;
+  const ref=selDay||(ds.includes(td)?td:ds[0]),u=use(ref),sb=Math.max(u.t-st.bottles,0),vb=Math.max(st.bottles-u.t,0);
+  const shorts=TYPES.filter(y=>u[y.k]>st.cages[y.k]);
+  const rd=parse(ref),dl=`${rd.getMonth()+1}月${rd.getDate()}日(${DOW[rd.getDay()]})`,de=`${EN[rd.getDay()]}, ${mo(rd)} ${rd.getDate()}`;
+  $('#stats').innerHTML=`<div class="stat neutral">選択日<span class="en">Selected day${ref===td?' (today)':''}</span><b>${dl}</b><span class="en" style="display:inline">${de}</span></div>`+
+    
+    `<div class="stat">空きケージ<span class="en">Vacant cages</span><div class="tiles">`+TYPES.map(y=>{const v=Math.max(st.cages[y.k]-u[y.k],0);return `<div class="tile${v?'':' z'}"><span>${y.ja}${y.k}<span class="en in">${y.en}</span></span><b>${v}</b><small>/ ${st.cages[y.k]}</small></div>`}).join('')+`</div></div>`+
+    `<div class="stat">空きボトル<span class="en">Vacant bottles</span><b>${vb}</b> / ${st.bottles}</div>`+
+    (shorts.length||sb?`<div class="stat warn">${WARN}不足<span class="en">Shortage</span>${[shorts.length?'ケージ Cages: '+shorts.map(y=>`${y.ja}${y.k} ${y.en} <b>${u[y.k]-st.cages[y.k]}</b>`).join(' / '):'',sb?`ボトル Bottles: <b>${sb}</b>`:''].filter(Boolean).join(' &nbsp;|&nbsp; ')}</div>`:'');
+  let h=`<div class="row head"><div class="who"></div><div class="track">`+days.map((d,i)=>`<div class="d${ds[i]===td?' today':''}${ds[i]===ref?' picked':''}" data-day="${ds[i]}" title="クリックでこの日の空きを表示 Click to see this day's vacancies"><small>${DOW[i]} ${EN[i]}</small><b>${d.getDate()}</b></div>`).join('')+`</div></div>`;
+  const uses=ds.map(x=>use(x));
+  const rowS=(a,b,f)=>`<div class="row sum"><div class="who lab">${a}<span class="en">${b}</span></div><div class="track">`+uses.map(f).join('')+`</div></div>`;
+  
+  h+=rowS('空きケージ(大 / 中 / 小)','Vacant cages (Large / Medium / Small)',x=>`<div class="d tri">`+TYPES.map(y=>{const v=Math.max(st.cages[y.k]-x[y.k],0);return `<span class="m${v?'':' z'}"><i>${y.ja}${y.k}</i><b>${v}</b></span>`}).join('')+`</div>`);
+  h+=rowS('空きボトル','Vacant bottles',x=>`<div class="d">${Math.max(st.bottles-x.t,0)}</div>`);
+  if(uses.some(x=>x.t>st.bottles||TYPES.some(y=>x[y.k]>st.cages[y.k])))
+    h+=`<div class="row sum shortrow"><div class="who lab">${WARN}不足<span class="en">Shortage</span></div><div class="track">`+uses.map(x=>{
+      const ts=TYPES.filter(y=>x[y.k]>st.cages[y.k]),b=Math.max(x.t-st.bottles,0);
+      return ts.length||b?`<div class="d warn"><span>${WARN}</span>${ts.map(y=>`<span>${y.ja}${y.k}<span class="en"> ${y.en}</span>: ${x[y.k]-st.cages[y.k]}</span>`).join('')}${b?`<span>ボトル<span class="en"> Bottles</span>: ${b}</span>`:''}</div>`:`<div class="d">–</div>`}).join('')+`</div></div>`;
+  st.users.forEach(us=>{
+    const bs=st.bookings.filter(b=>b.uid===us.id&&b.start<=ds[6]&&b.end>=ds[0]).sort((a,b)=>a.start.localeCompare(b.start));
+    const laneEnd=[];let bars='';
+    bs.forEach(b=>{
+      const s=Math.max(0,Math.round((parse(b.start)-ws)/864e5)),e=Math.min(6,Math.round((parse(b.end)-ws)/864e5));
+      let l=laneEnd.findIndex(x=>x<s);if(l<0){l=laneEnd.length}laneEnd[l]=e;
+      const jt=TYPES.map(y=>`${y.ja} ${b.cages[y.k]||0}`).join(' / '),et=TYPES.map(y=>`${y.en} ${b.cages[y.k]||0}`).join(' / ');
+      bars+=`<button class="bar" data-id="${b.id}" style="grid-column:${s+1}/${e+2};grid-row:${l+1}" title="${b.start} 〜 ${b.end}  ${jt}  ${et}">${jt}<span class="en">${et}</span></button>`;
+    });
+    const r=selRange(us.id);
+    h+=`<div class="row" style="--c:${us.color}"><div class="who"><input type="color" value="${us.color}" data-col="${us.id}" aria-label="色 Color"><span title="${esc(us.name)}">${esc(us.name)}</span><button class="x" data-del="${us.id}" title="利用者を削除 Delete user" aria-label="利用者を削除 Delete user"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v5M14 11v5"/></svg></button></div>`+
+      `<div class="utrack" data-u="${us.id}"><div class="cells">${ds.map((x,i)=>`<div data-i="${i}"${r&&x>=r[0]&&x<=r[1]?' class="sel"':''}></div>`).join('')}</div><div class="bars">${bars}</div></div></div>`;
+    if(askDel&&askDel.kind==='user'&&askDel.id===us.id)h+=`<div class="pop" style="--c:${us.color}"><b>${esc(us.name)}</b><span class="bad2">${WARN}この利用者と、その予約をすべて削除しますか?<span class="en">Delete this user and all of their bookings?</span></span><button class="pri danger" id="udelok">削除する<span class="en">Delete</span></button><button id="udelno">キャンセル<span class="en">Cancel</span></button></div>`;
+    if(pending&&pending.uid===us.id)h+=`<div class="pop" style="--c:${us.color}"><b>${esc(us.name)}</b>${pending.editId?'<span>予約の変更<span class="en">Editing booking</span></span>':''}<label>開始日<span class="en">Start date</span><input id="ps" type="date" value="${pending.start}"></label><label>終了日<span class="en">End date</span><input id="pe" type="date" value="${pending.end}"></label>`+
+      TYPES.map(y=>`<label>ケージ数(${y.ja})<span class="en">Cages (${y.en})</span><input id="p${y.k}" type="number" min="0" value="${pending.n?pending.n[y.k]:0}"></label>`).join('')+
+      `<button class="pri" id="pok">${pending.editId?'変更を保存':'予約を追加'}<span class="en">${pending.editId?'Save changes':'Add booking'}</span></button><button id="pcancel">キャンセル<span class="en">Cancel</span></button><div id="pinfo" class="pinfo"></div></div>`;
+    if(detail){const b=bs.find(q=>q.id===detail);if(b){const dn=Math.round((parse(b.end)-parse(b.start))/864e5)+1,n=tot(b.cages);
+      h+=`<div class="pop det" style="--c:${us.color}"><b>${esc(us.name)}</b><span>期間<span class="en">Period</span>: ${b.start} 〜 ${b.end}</span><span>日数<span class="en">Days</span>: <b>${dn}</b></span>`+TYPES.map(y=>`<span>ケージ(${y.ja})<span class="en">Cages (${y.en})</span>: <b>${b.cages[y.k]||0}</b></span>`).join('')+`<span>ボトル<span class="en">Bottles</span>: <b>${n}</b></span>${askDel&&askDel.kind==='booking'?`<span class="bad2">${WARN}この予約を削除しますか?<span class="en">Delete this booking?</span></span><button class="pri danger" id="bdelok">削除する<span class="en">Delete</span></button><button id="bdelno">キャンセル<span class="en">Cancel</span></button>`:`<button class="pri" id="dedit">予約を変更<span class="en">Edit booking</span></button><button id="dclose">閉じる<span class="en">Close</span></button><button id="ddel">予約を削除<span class="en">Delete booking</span></button>`}</div>`}}
+  });
+  h+=addingUser?`<div class="plus"><input id="un" maxlength="20" placeholder="利用者名 User name"><button class="pri" id="uok">追加<span class="en">Add</span></button><button id="ucancel">キャンセル<span class="en">Cancel</span></button></div>`:`<div class="plus"><button id="addu">＋ 利用者を追加<span class="en">Add user</span></button></div>`;
+  $('#cal').innerHTML=h;
+  TYPES.forEach(y=>$('#t'+y.k).value=st.cages[y.k]);$('#tb').value=st.bottles;
+  if(pending){refreshPop();$('#pL').focus()}else if(addingUser)$('#un').focus();
+}
+function paint(){
+  document.querySelectorAll('.cells div.sel').forEach(c=>c.classList.remove('sel'));
+  if(!drag)return;
+  const r=selRange(drag.uid);
+  document.querySelectorAll(`.utrack[data-u="${drag.uid}"] .cells div`).forEach(c=>{const x=ds[+c.dataset.i];if(x>=r[0]&&x<=r[1])c.classList.add('sel')});
+}
+function edge(){
+  if(!drag||!lastPt)return;
+  const t=document.querySelector(`.utrack[data-u="${drag.uid}"]`);if(!t)return;
+  const r=t.getBoundingClientRect(),c=$('.cal').getBoundingClientRect();
+  if(lastPt.x>Math.min(r.right,c.right)-14){ws=add(ws,7);render();drag.b=ds[0];paint()}
+  else if(lastPt.x<r.left+10){ws=add(ws,-7);render();drag.b=ds[6];paint()}
+}
+$('#cal').addEventListener('pointerdown',e=>{
+  const c=e.target.closest('.cells div');if(!c||e.button>0)return;
+  const u=c.closest('.utrack').dataset.u,x=ds[+c.dataset.i];
+  if(pending||addingUser||detail||askDel){pending=null;addingUser=false;detail=null;askDel=null;render()}
+  drag={uid:u,a:x,b:x};lastPt={x:e.clientX,y:e.clientY};paint();
+  try{$('#cal').setPointerCapture(e.pointerId)}catch(_){}
+  clearInterval(edgeTimer);edgeTimer=setInterval(edge,650);
+});
+document.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  lastPt={x:e.clientX,y:e.clientY};
+  const el=document.elementFromPoint(e.clientX,e.clientY),c=el&&el.closest&&el.closest('.cells div');
+  if(c&&c.closest('.utrack').dataset.u===drag.uid){drag.b=ds[+c.dataset.i];paint()}
+});
+document.addEventListener('pointerup',()=>{
+  if(!drag)return;
+  clearInterval(edgeTimer);
+  const[l,h]=[drag.a,drag.b].sort();
+  pending={uid:drag.uid,start:l,end:h};detail=null;drag=null;render();
+});
+document.addEventListener('pointercancel',()=>{clearInterval(edgeTimer);drag=null;paint()});
+$('#cal').addEventListener('click',e=>{
+  const t=e.target.closest('button')||e.target;
+  const dd=t.closest('.head .d');if(dd){selDay=dd.dataset.day;render();return}
+  if(t.closest('.bar')){
+    detail=t.closest('.bar').dataset.id;askDel=null;pending=null;addingUser=false;render();
+    
+  }else if(t.dataset.del){
+    askDel={kind:'user',id:t.dataset.del};pending=null;detail=null;addingUser=false;render();
+    
+  }else if(t.id==='addu'){addingUser=true;pending=null;render()}
+  else if(t.id==='ucancel'){addingUser=false;render()}
+  else if(t.id==='uok')confirmUser();
+  else if(t.id==='pcancel'){pending=null;render()}
+  else if(t.id==='pok')confirmBooking();
+  else if(t.id==='dclose'){detail=null;render()}
+  else if(t.id==='dedit'){const b=st.bookings.find(y=>y.id===detail);if(b){pending={uid:b.uid,start:b.start,end:b.end,n:{...b.cages},editId:b.id};detail=null;render()}}
+  else if(t.id==='ddel'){askDel={kind:'booking',id:detail};render()}
+  else if(t.id==='bdelok')delBooking();
+  else if(t.id==='bdelno'){askDel=null;render()}
+  else if(t.id==='udelok')delUser();
+  else if(t.id==='udelno'){askDel=null;render()}
+});
+$('#cal').addEventListener('change',e=>{
+  if(e.target.dataset.col){
+    const u=st.users.find(y=>y.id===e.target.dataset.col);if(!u)return;
+    if(!ready()){render();return}
+    u.color=e.target.value;render();
+    run(sb.from(T.us).update({color:u.color}).eq('id',u.id));
+  }
+});
+$('#cal').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();if(['pL','pM','pS','ps','pe'].includes(e.target.id))confirmBooking();if(e.target.id==='un')confirmUser()}
+  if(e.key==='Escape'){pending=null;addingUser=false;render()}
+});
+const readN=()=>{const n={};TYPES.forEach(y=>n[y.k]=Math.max(0,parseInt($('#p'+y.k).value)||0));return n};
+function refreshPop(){
+  const s=$('#ps').value,e=$('#pe').value,n=readN(),box=$('#pinfo');
+  if(!s||!e||e<s){box.innerHTML='';return}
+  pending.start=s;pending.end=e;pending.n=n;
+  const vc={L:Infinity,M:Infinity,S:Infinity};let vb=Infinity,d=parse(s),cnt=0;
+  while(fmt(d)<=e&&cnt<366){const k=use(fmt(d),pending.editId);TYPES.forEach(y=>vc[y.k]=Math.min(vc[y.k],st.cages[y.k]-k[y.k]));vb=Math.min(vb,st.bottles-k.t);d=add(d,1);cnt++}
+  const lo=s!==e?' (lowest in range)':'';
+  let h=`<span>空きケージ<span class="en">Vacant cages${lo}</span>: `+TYPES.map(y=>`${y.ja}<span class="en">${y.en}</span> <b>${Math.max(vc[y.k],0)}</b>`).join(' &nbsp; ')+`</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span>空きボトル<span class="en">Vacant bottles${lo}</span>: <b>${Math.max(vb,0)}</b></span>`;
+  const sh=TYPES.filter(y=>n[y.k]>vc[y.k]),sbt=Math.max(tot(n)-vb,0);
+  if(sh.length||sbt)h+=`<div class="bad">${WARN}不足 Shortage — ${[sh.length?'ケージ Cages: '+sh.map(y=>`${y.ja}${y.k} ${y.en} ${n[y.k]-vc[y.k]}`).join(' / '):'',sbt?'ボトル Bottles: '+sbt:''].filter(Boolean).join(' | ')}</div>`;
+  box.innerHTML=h;
+  document.querySelectorAll(`.utrack[data-u="${pending.uid}"] .cells div`).forEach(c=>{const x=ds[+c.dataset.i];c.classList.toggle('sel',x>=s&&x<=e)});
+}
+$('#cal').addEventListener('input',e=>{if(['ps','pe','pL','pM','pS'].includes(e.target.id))refreshPop()});
+function confirmBooking(){
+  const s=$('#ps').value,e=$('#pe').value,n=readN();
+  if(!s||!e||e<s){$('#pinfo').innerHTML=`<div class="bad">${WARN}終了日は開始日以降にしてください。<span class="en">The end date must be on or after the start date.</span></div>`;return}
+  if(tot(n)<1){$('#pinfo').innerHTML=`<div class="bad">${WARN}ケージ数を1以上入力してください。<span class="en">Enter at least one cage.</span></div>`;return}
+  if(!ready())return;
+  if(pending.editId){
+    const b=st.bookings.find(y=>y.id===pending.editId);
+    if(b){b.start=s;b.end=e;b.cages=n;const{id,...row}=evToRow(b);run(sb.from(T.ev).update(row).eq('id',id))}
+    else{toast('この予約は他のユーザーにより削除されました。','This booking was deleted by another user.');pending=null;render();return}
+  }else{
+    const b={id:uid(),uid:pending.uid,start:s,end:e,cages:n};
+    st.bookings.push(b);run(sb.from(T.ev).insert(evToRow(b)));
+  }
+  if(e<ds[0]||s>ds[6])ws=sow(parse(s));
+  pending=null;render();
+}
+function delBooking(){
+  const x=st.bookings.find(y=>y.id===detail);
+  if(x&&ready()){st.bookings=st.bookings.filter(y=>y!==x);detail=null;askDel=null;render();run(sb.from(T.ev).delete().eq('id',x.id))}
+}
+function delUser(){
+  const u=askDel&&st.users.find(y=>y.id===askDel.id);
+  if(u){
+    if(!ready())return;
+    st.users=st.users.filter(y=>y!==u);st.bookings=st.bookings.filter(b=>b.uid!==u.id);
+    askDel=null;render();
+    run(sb.from(T.us).delete().eq('id',u.id)); // 予約は ON DELETE CASCADE で一緒に削除 / bookings are removed by ON DELETE CASCADE
+    return;
+  }
+  askDel=null;render();
+}
+function confirmUser(){
+  const n=$('#un').value.trim();if(!n||!ready())return;
+  const u={id:uid(),name:n,color:PAL[st.users.length%PAL.length]};
+  st.users.push(u);addingUser=false;render();
+  run(sb.from(T.us).insert(u));
+}
+$('#prev').onclick=()=>{ws=add(ws,-7);pending=null;render()};
+$('#next').onclick=()=>{ws=add(ws,7);pending=null;render()};
+$('#today').onclick=()=>{ws=sow(new Date());selDay=null;pending=null;render()};
+TYPES.forEach(y=>{$('#t'+y.k).onchange=()=>{
+  if(!ready()){render();return}
+  const v=Math.max(0,Math.floor(+$('#t'+y.k).value||0));
+  st.cages[y.k]=v;render();
+  run(sb.from(T.se).upsert({id:1,[SETCOL[y.k]]:v}));
+}});
+$('#tb').onchange=()=>{
+  if(!ready()){render();return}
+  const v=Math.max(0,Math.floor(+$('#tb').value||0));
+  st.bottles=v;render();
+  run(sb.from(T.se).upsert({id:1,bottles:v}));
+};
+render();
+if(sb){setSync('wait');subscribe();loadAll()}else{setSync('err');ready()}
+</script>
+</body>
+</html>
